@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -96,7 +97,7 @@ function RejectModal({ onClose, onConfirm }) {
   );
 }
 
-export default function SubscriptionDetails() {
+function SubscriptionDetailsContent() {
   const { id } = useParams();
   const sub = subscriptions.find((s) => s.id === id);
   const [status, setStatus] = useState(sub?.status);
@@ -284,5 +285,13 @@ export default function SubscriptionDetails() {
 
       {showReject && <RejectModal onClose={() => setShowReject(false)} onConfirm={reject} />}
     </div>
+  );
+}
+
+export default function SubscriptionDetails() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading subscription...</div>}>
+      <SubscriptionDetailsContent />
+    </Suspense>
   );
 }
