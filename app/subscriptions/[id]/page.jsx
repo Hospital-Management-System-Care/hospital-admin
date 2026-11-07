@@ -166,7 +166,7 @@ function SubscriptionDetailsContent() {
       </div>
 
       <div className="flex flex-wrap items-start gap-5">
-        <div className="flex min-w-[420px] flex-[2] flex-col gap-5">
+        <div className="flex min-w-105 flex-2 flex-col gap-5">
           {status === "rejected" && rejectReason && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-5">
               <h2 className="mb-1 text-base font-semibold text-rose-900">Rejection reason</h2>
@@ -215,7 +215,7 @@ function SubscriptionDetailsContent() {
           </Card>
         </div>
 
-        <div className="flex min-w-[300px] flex-1 flex-col gap-5">
+        <div className="flex min-w-75 flex-1 flex-col gap-5">
           <Card title="Invoice receipt">
             <div className="mb-3.5 rounded-lg border border-slate-200 p-4">
               <div className="text-xs text-slate-600">Receipt</div>
