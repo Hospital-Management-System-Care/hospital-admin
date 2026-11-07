@@ -1,7 +1,7 @@
 const styles = {
-  pending: "bg-amber-100 text-amber-800",
-  accepted: "bg-emerald-100 text-emerald-800",
-  rejected: "bg-rose-100 text-rose-800",
+  pending: "bg-amber-100 text-amber-800 w-fit",
+  accepted: "bg-emerald-100 text-emerald-800 w-fit",
+  rejected: "bg-rose-100 text-rose-800 w-fit",
 };
 
 export default function StatusPill({ status }) {
