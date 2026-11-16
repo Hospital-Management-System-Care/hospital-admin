@@ -8,7 +8,7 @@ const styles = {
 export default function StatusPill({ status }) {
   return (
     <span
-      className={`inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize ${styles[status] || "bg-slate-100 text-slate-700"}`}
+      className={`inline-block w-fit rounded-full px-3 py-1 text-xs font-semibold capitalize ${styles[status] || "bg-slate-100 text-slate-700"}`}
     >
       {status}
     </span>
