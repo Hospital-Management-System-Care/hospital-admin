@@ -40,7 +40,6 @@ There are no tests. Verify changes with lint + build and by loading the pages in
 | `components/subscriptions/AdminLogin.jsx` | Sign-in form shown when no/invalid token |
 | `components/subscriptions/StatusPill.jsx` | Status badge (pending / approved / rejected) |
 | `lib/adminApi.js` | **All** backend calls go through here |
-| `lib/subscriptionsData.js` | Old mock data — unused, safe to delete |
 
 Both pages are client components (`"use client"`). They start in `loading` state so the
 prerendered HTML matches the first client render; never read `localStorage` during the initial
