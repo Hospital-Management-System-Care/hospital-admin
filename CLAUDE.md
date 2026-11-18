@@ -35,10 +35,11 @@ There are no tests. Verify changes with lint + build and by loading the pages in
 |---|---|
 | `app/page.tsx` | Redirects `/` → `/subscriptions` |
 | `app/subscriptions/layout.jsx` | Wraps pages in `AdminShell` (sidebar + toaster) |
-| `app/subscriptions/page.jsx` | List of payment requests: tabs (All / Queue=pending / Approved), search, link to detail |
-| `app/subscriptions/[id]/page.jsx` | Detail: contact, selected portals, proof image, summary, history, Approve / Reject modal |
+| `app/subscriptions/page.jsx` | List of payment requests: status tabs (All / Queue=pending / Approved), Type filter, search, link to detail |
+| `app/subscriptions/[id]/page.jsx` | Detail: "If you approve" preview, contact, portal price table, proof image, summary, history, Approve / Reject modal |
 | `components/subscriptions/AdminLogin.jsx` | Sign-in form shown when no/invalid token |
 | `components/subscriptions/StatusPill.jsx` | Status badge (pending / approved / rejected) |
+| `components/subscriptions/TypePill.jsx` | Payment type badge + `paymentTypeOf()` (missing `payment_type` → `RENEWAL`) |
 | `lib/adminApi.js` | **All** backend calls go through here |
 
 Both pages are client components (`"use client"`). They start in `loading` state so the
@@ -49,8 +50,8 @@ render outside of that pattern.
 
 The API is the Express + MySQL app in the sibling repo **`../hospital-care-api`** (not
 `HMS-api`). Base URL: `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:5050/api`). CORS is
-`*`. Responses are `{ success, message, data }`; `adminApi.request()` unwraps `data` and throws
-`Error(body.message)` on non-2xx.
+`*`. Responses are `{ success, message, code?, data }`; `adminApi.request()` unwraps `data` and on
+non-2xx throws an `Error(body.message)` with `.status` (HTTP) and `.code` (the API's code) attached.
 
 ### Auth flow
 
@@ -68,15 +69,24 @@ The API is the Express + MySQL app in the sibling repo **`../hospital-care-api`*
 | Function in `lib/adminApi.js` | Request | Notes |
 |---|---|---|
 | `getPaymentRequests` | `GET /subscriptionPayment/admin/all` | Pending first, then newest. Includes `hospital_name`, `requester_name/email`, `portal_names` (comma-joined) |
-| `getPaymentRequest(id)` | `GET /subscriptionPayment/admin/get/:id` | Adds `portals[]` (`portal_id`, `portal_name`, `billing_days`, `total`) |
-| `approvePaymentRequest(id)` | `PUT /subscriptionPayment/approve/:id` | Fails 409 if not pending, subscription not `PENDING_PAYMENT`, or amount ≠ subscription total. Sets subscription `ACTIVE`, `paid_at`, `verified_at` |
+| `getPaymentRequest(id)` | `GET /subscriptionPayment/admin/get/:id` | Adds `portals[]` (`portal_id`, `portal_name`, `monthly_price`, `billing_days` = days charged, `total`), `subscription_end_date`, and for pending requests `approval_preview` (`period_start`, `period_end`, `can_approve`, `blocked_reason`) |
+| `approvePaymentRequest(id)` | `PUT /subscriptionPayment/approve/:id` | Fails 409 if not pending, subscription not `PENDING_PAYMENT`, or amount ≠ subscription total; also 409 with `code` `ADD_ON_PERIOD_ENDED` / `PORTAL_ALREADY_SUBSCRIBED` (the detail page then reloads, since its preview was stale). Sets subscription `ACTIVE`, `paid_at`, `verified_at` |
 | `rejectPaymentRequest(id, reason)` | `PUT /subscriptionPayment/reject/:id` `{ reason }` | Reason required, ≤ 500 chars |
 | `getPaymentProof(proof_url)` | `GET /subscriptionPayment/proof/:filename` | Auth-protected file; fetched as a blob and shown via an object URL (revoked on cleanup). `proof_url` is an absolute URL built from the API's `PUBLIC_API_URL` |
 
 Payment row fields used by the UI: `id`, `status` (`PENDING` | `APPROVED` | `REJECTED`, uppercase —
 the UI lowercases for display), `amount`, `payment_method` (`JAZZCASH` | `EASYPAISA` |
 `BANK_TRANSFER`), `transaction_reference`, `whatsapp_number`, `proof_url`, `rejection_reason`,
-`created_at`, `verified_at`, `paid_at`. Request IDs are displayed as `PAY-{id}`.
+`created_at`, `verified_at`, `paid_at`, `payment_type`. Request IDs are displayed as `PAY-{id}`.
+
+Payment types: `RENEWAL` (30 days for the chosen portals, starting at the current end date) and
+`ADD_PORTALS` (new portals only, pro-rated for the days left, ending on the hospital's current end
+date). Older rows have no `payment_type`; treat them as `RENEWAL`.
+
+Period dates (`period_start`, `period_end`, `subscription_end_date`) are ISO instants on the
+API's business calendar, Karachi (UTC+5). Ends are **exclusive**: the midnight that starts the
+next day. Show an end as the Karachi day of `end − 1ms` (the API's `endsOnDate`), otherwise the
+UI shows one day later than the hospital is told. See `startDay`/`endDay` in the detail page.
 
 Hospitals submit these payments from `../hospital-care-frontend` (`POST /subscriptionPayment/proof`
 then `/create`); amounts are calculated server-side from the portal catalogue.

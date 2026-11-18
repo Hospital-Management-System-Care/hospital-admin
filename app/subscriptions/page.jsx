@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import StatusPill from "@/components/subscriptions/StatusPill";
 import AdminLogin from "@/components/subscriptions/AdminLogin";
+import TypePill, { PAYMENT_TYPES, paymentTypeOf } from "@/components/subscriptions/TypePill";
 import { clearAdminToken, getAdminToken, getPaymentRequests } from "@/lib/adminApi";
 
 const TABS = [
@@ -13,11 +14,17 @@ const TABS = [
   { key: "approved", label: "Approved" },
 ];
 
+const TYPE_FILTERS = [
+  { key: "all", label: "All types" },
+  ...Object.entries(PAYMENT_TYPES).map(([key, { label }]) => ({ key, label })),
+];
+
 const cols =
-  "grid min-w-[980px] grid-cols-[2fr_1.5fr_1.5fr_.9fr_.9fr_.9fr_1fr_76px] items-center gap-3 px-5 py-3.5 text-sm";
+  "grid min-w-[1080px] grid-cols-[2fr_1.5fr_1.5fr_.9fr_.9fr_.9fr_.9fr_1fr_76px] items-center gap-3 px-5 py-3.5 text-sm";
 
 export default function SubscriptionsList() {
   const [tab, setTab] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [q, setQ] = useState("");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,16 +52,18 @@ export default function SubscriptionsList() {
     const term = q.trim().toLowerCase();
     return requests.filter((request) => {
       const status = String(request.status || "").toLowerCase();
+      const type = paymentTypeOf(request);
       const inTab = tab === "all" || status === tab;
+      const inType = typeFilter === "all" || type === typeFilter;
       const match =
         !term ||
-        [request.requester_name, request.requester_email, request.hospital_name, request.portal_names, request.id]
+        [request.requester_name, request.requester_email, request.hospital_name, request.portal_names, request.id, PAYMENT_TYPES[type].label]
           .join(" ")
           .toLowerCase()
           .includes(term);
-      return inTab && match;
+      return inTab && inType && match;
     });
-  }, [requests, tab, q]);
+  }, [requests, tab, typeFilter, q]);
 
   const count = (key) =>
     key === "all"
@@ -78,7 +87,7 @@ export default function SubscriptionsList() {
           aria-label="Search subscriptions"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search requester, hospital or request ID"
+          placeholder="Search requester, hospital, type or request ID"
           className="w-80 max-w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-700/20"
         />
       </div>
@@ -88,18 +97,37 @@ export default function SubscriptionsList() {
         <button onClick={() => { clearAdminToken(); setSignedIn(false); }} className="text-sm font-semibold text-teal-700 hover:underline">Sign out</button>
       </div>
 
-      <div className="mb-4 flex gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-lg border border-teal-700 px-3.5 py-2 text-sm font-semibold ${
-              tab === t.key ? "bg-teal-700 text-white" : "bg-white text-teal-700"
-            }`}
-          >
-            {t.label} ({count(t.key)})
-          </button>
-        ))}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`rounded-lg border border-teal-700 px-3.5 py-2 text-sm font-semibold ${
+                tab === t.key ? "bg-teal-700 text-white" : "bg-white text-teal-700"
+              }`}
+            >
+              {t.label} ({count(t.key)})
+            </button>
+          ))}
+        </div>
+        <div role="group" aria-label="Filter by type" className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-slate-600">Type</span>
+          <div className="flex overflow-hidden rounded-lg border border-slate-300">
+            {TYPE_FILTERS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTypeFilter(t.key)}
+                aria-pressed={typeFilter === t.key}
+                className={`border-l border-slate-300 px-3 py-2 text-sm font-semibold first:border-l-0 ${
+                  typeFilter === t.key ? "bg-slate-800 text-white" : "bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -107,6 +135,7 @@ export default function SubscriptionsList() {
           <span>User</span>
           <span>Portals</span>
           <span>Hospital</span>
+          <span>Type</span>
           <span>Status</span>
           <span>Submitted</span>
           <span>Reviewed</span>
@@ -117,7 +146,7 @@ export default function SubscriptionsList() {
         {loading && <p className="px-5 py-10 text-center text-sm text-slate-500">Loading payment requests…</p>}
         {!loading && rows.length === 0 && (
           <p className="px-5 py-10 text-center text-sm text-slate-500">
-            No subscriptions found. Try a different search or tab.
+            No subscriptions found. Try a different search, tab or type.
           </p>
         )}
 
@@ -135,6 +164,7 @@ export default function SubscriptionsList() {
               ))}
             </span>
             <span>{request.hospital_name}</span>
+            <TypePill type={paymentTypeOf(request)} />
             <StatusPill status={String(request.status || "").toLowerCase()} />
             <span>{request.created_at ? new Date(request.created_at).toLocaleDateString() : "—"}</span>
             <span>{request.verified_at ? new Date(request.verified_at).toLocaleDateString() : request.status === "PENDING" ? "Awaiting review" : "—"}</span>
