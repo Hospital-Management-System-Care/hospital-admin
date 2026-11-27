@@ -2,9 +2,11 @@
 
 # HMS Admin (hospital-admin)
 
-Platform-admin (support team) panel for the HMS SaaS. Its one job: review hospital
-**subscription payment requests** — view the payment proof, then approve (activates the
-subscription's portals) or reject (with a reason the hospital admin sees).
+Platform-admin (support team) panel for the HMS SaaS. It does two jobs:
+- Review hospital **subscription payment requests**: view the payment proof, then approve
+  (activates the subscription's portals) or reject (with a reason the hospital admin sees).
+- Process **refund requests** (subscription cancellations): send the money outside the system,
+  upload the transfer screenshot and mark it refunded (ends the subscription), or reject.
 
 ## Stack
 
@@ -37,6 +39,12 @@ There are no tests. Verify changes with lint + build and by loading the pages in
 | `app/subscriptions/layout.jsx` | Wraps pages in `AdminShell` (sidebar + toaster) |
 | `app/subscriptions/page.jsx` | List of payment requests: status tabs (All / Queue=pending / Approved), Type filter, search, link to detail |
 | `app/subscriptions/[id]/page.jsx` | Detail: "If you approve" preview, contact, portal price table, proof image, summary, history, Approve / Reject modal |
+| `app/refunds/page.jsx` | Refund requests list: server-side Status (default In Review) / Tier / date / search filters, paginated, oldest In Review first |
+| `app/refunds/[id]/page.jsx` | Refund detail: amount, Send-to account with Copy, payments covered, hospital, subscription, history; Mark as Refunded / Reject |
+| `components/refunds/RefundModals.jsx` | Mark-refunded (screenshot upload, then PATCH) and reject modals. 409 → toast + reload; other errors stay in the modal |
+| `components/refunds/TierPill.jsx` | Refund tier badge (FULL / HALF / NONE) |
+| `components/ProtectedImage.jsx` | Shows an auth-protected image via blob + object URL |
+| `components/ui.jsx`, `lib/format.js` | Shared `Card`/`Field` and display helpers (`pkr`, `startDay`/`endDay`, `toMs`, `daysSince`) |
 | `components/subscriptions/AdminLogin.jsx` | Sign-in form shown when no/invalid token |
 | `components/subscriptions/StatusPill.jsx` | Status badge (pending / approved / rejected) |
 | `components/subscriptions/TypePill.jsx` | Payment type badge + `paymentTypeOf()` (missing `payment_type` → `RENEWAL`) |
@@ -73,6 +81,20 @@ non-2xx throws an `Error(body.message)` with `.status` (HTTP) and `.code` (the A
 | `approvePaymentRequest(id)` | `PUT /subscriptionPayment/approve/:id` | Fails 409 if not pending, subscription not `PENDING_PAYMENT`, or amount ≠ subscription total; also 409 with `code` `ADD_ON_PERIOD_ENDED` / `PORTAL_ALREADY_SUBSCRIBED` (the detail page then reloads, since its preview was stale). Sets subscription `ACTIVE`, `paid_at`, `verified_at` |
 | `rejectPaymentRequest(id, reason)` | `PUT /subscriptionPayment/reject/:id` `{ reason }` | Reason required, ≤ 500 chars |
 | `getPaymentProof(proof_url)` | `GET /subscriptionPayment/proof/:filename` | Auth-protected file; fetched as a blob and shown via an object URL (revoked on cleanup). `proof_url` is an absolute URL built from the API's `PUBLIC_API_URL` |
+
+### Refund endpoints (`/admin/subscriptionCancellation`, spec in `../hospital-care-frontend/docs/backend-prompts/subscription-cancellation.md`)
+
+| Function | Request |
+|---|---|
+| `getRefundRequests(params)` | `GET /all?status=&tier=&from=&to=&search=&page=&limit=`; normalised to `{ items, total, page, limit }` |
+| `getInReviewRefundCount` | Same, `status=IN_REVIEW&limit=1`, reads `total` (sidebar badge: every 60 s, on focus, after refund/reject/sign-in) |
+| `getRefundRequest(id)` | `GET /:id` (unwraps `data.cancellation`); includes the **unmasked** account number, never log it |
+| `uploadRefundProof(dataUrl)` | `POST /proof` `{ image }` → `proof_url` |
+| `markRefundRequestRefunded(id, …)` | `PATCH /:id/refund` `{ refund_proof_url, note? }` |
+| `rejectRefundRequest(id, reason)` | `PATCH /:id/reject` `{ rejection_reason }` |
+
+Statuses: `IN_REVIEW`, `REFUNDED`, `REJECTED`, `CANCELLED` (tier NONE, read-only). Never recalculate
+refund amounts in the panel; show the API's values. Request IDs are displayed as `REF-{id}`.
 
 Payment row fields used by the UI: `id`, `status` (`PENDING` | `APPROVED` | `REJECTED`, uppercase —
 the UI lowercases for display), `amount`, `payment_method` (`JAZZCASH` | `EASYPAISA` |
