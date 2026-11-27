@@ -15,27 +15,8 @@ import {
   getPaymentRequest,
   rejectPaymentRequest,
 } from "@/lib/adminApi";
-
-const Card = ({ title, children }) => <section className="rounded-xl border border-slate-200 bg-white p-5"><h2 className="mb-4 text-base font-semibold">{title}</h2>{children}</section>;
-const Field = ({ label, children }) => <div><div className="mb-0.5 text-xs text-slate-600">{label}</div><div className="text-sm font-semibold">{children || "—"}</div></div>;
-const displayDate = (value) => value ? new Date(value).toLocaleString() : "—";
-const displayMethod = (value) => String(value || "—").replaceAll("_", " ");
-const pkr = (value) => `PKR ${Number(value || 0).toLocaleString("en-PK", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-
-// Subscription periods are ISO instants on the API's business calendar (Karachi, UTC+5).
-// A period starts at an instant and ends *exclusively* at the midnight that begins the next
-// day, so the last day shown is the one containing `end - 1ms` (same as the API's endsOnDate).
-const BUSINESS_TZ = "Asia/Karachi";
-const formatBusinessDay = (ms) =>
-  new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: BUSINESS_TZ });
-const startDay = (value) => {
-  const ms = Date.parse(value);
-  return Number.isNaN(ms) ? "—" : formatBusinessDay(ms);
-};
-const endDay = (value) => {
-  const ms = Date.parse(value);
-  return Number.isNaN(ms) ? "—" : formatBusinessDay(ms - 1);
-};
+import { Card, Field } from "@/components/ui";
+import { displayDate, displayMethod, endDay, pkr, startDay } from "@/lib/format";
 
 // Approve failures that mean the preview was stale: show the API message and reload.
 const STALE_PREVIEW_CODES = new Set(["ADD_ON_PERIOD_ENDED", "PORTAL_ALREADY_SUBSCRIBED"]);
